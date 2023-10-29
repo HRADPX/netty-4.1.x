@@ -70,5 +70,18 @@ in your `module-info` file.
 * [下载源码](https://github.com/netty/netty/tags)
 * 解压导入idea
 * cd dev-tools  -->  maven clean install
-* cd common  --> maven clean install -Dmaven.skip.test=true -Dcheckstyle.skip=true
-* 运行example 包下的文件
+* cd common  --> mvn clean install -Dmaven.skip.test=true -Dcheckstyle.skip=true
+* reimport
+* 运行example 包下的文件测试是否编译成功 io.netty.example.http2.helloworld.server.Http2Server，运行成功会出现下面的日志
+```
+21:19:35.987 [nioEventLoopGroup-2-1] INFO  i.n.handler.logging.LoggingHandler - [id: 0xf23aeea6] REGISTERED
+21:19:35.991 [nioEventLoopGroup-2-1] INFO  i.n.handler.logging.LoggingHandler - [id: 0xf23aeea6] BIND: 0.0.0.0/0.0.0.0:8080
+21:19:35.992 [nioEventLoopGroup-2-1] INFO  i.n.handler.logging.LoggingHandler - [id: 0xf23aeea6, L:/0:0:0:0:0:0:0:0:8080] ACTIVE
+Open your HTTP/2-enabled web browser and navigate to http://127.0.0.1:8080/
+```
+
+Note: 如果 build 过程中抛出下面异常，是因为 maven 版本问题，修改 .mvn/maven-wrapper.properties 文件，降低 maven 版本（3.6.1）
+```
+org.codehaus.plexus.component.repository.exception.ComponentLookupException: com.google.inject.ProvisionException: Unable to provision, see the following errors:
+1) Error injecting constructor, java.lang.NoSuchMethodError: org.apache.maven.model.validation.DefaultModelValidator: method <init>()V not found
+```
