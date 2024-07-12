@@ -15,12 +15,6 @@
  */
 package io.netty.util.concurrent;
 
-import io.netty.util.internal.UnstableApi;
-import io.netty.util.internal.logging.InternalLogger;
-import io.netty.util.internal.logging.InternalLoggerFactory;
-
-import org.jetbrains.annotations.Async.Execute;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -29,6 +23,12 @@ import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.Callable;
 import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
+
+import org.jetbrains.annotations.Async.Execute;
+
+import io.netty.util.internal.UnstableApi;
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
  * Abstract base class for {@link EventExecutor} implementations.
@@ -62,6 +62,7 @@ public abstract class AbstractEventExecutor extends AbstractExecutorService impl
 
     @Override
     public boolean inEventLoop() {
+        // 对比当前线程和 EventLoop 成员变量线程是否是同一个线程
         return inEventLoop(Thread.currentThread());
     }
 

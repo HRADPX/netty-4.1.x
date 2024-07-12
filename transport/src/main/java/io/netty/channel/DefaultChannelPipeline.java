@@ -15,18 +15,6 @@
  */
 package io.netty.channel;
 
-import io.netty.channel.Channel.Unsafe;
-import io.netty.util.ReferenceCountUtil;
-import io.netty.util.ResourceLeakDetector;
-import io.netty.util.concurrent.EventExecutor;
-import io.netty.util.concurrent.EventExecutorGroup;
-import io.netty.util.concurrent.FastThreadLocal;
-import io.netty.util.internal.ObjectUtil;
-import io.netty.util.internal.StringUtil;
-import io.netty.util.internal.UnstableApi;
-import io.netty.util.internal.logging.InternalLogger;
-import io.netty.util.internal.logging.InternalLoggerFactory;
-
 import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -38,6 +26,18 @@ import java.util.NoSuchElementException;
 import java.util.WeakHashMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+
+import io.netty.channel.Channel.Unsafe;
+import io.netty.util.ReferenceCountUtil;
+import io.netty.util.ResourceLeakDetector;
+import io.netty.util.concurrent.EventExecutor;
+import io.netty.util.concurrent.EventExecutorGroup;
+import io.netty.util.concurrent.FastThreadLocal;
+import io.netty.util.internal.ObjectUtil;
+import io.netty.util.internal.StringUtil;
+import io.netty.util.internal.UnstableApi;
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
  * The default {@link ChannelPipeline} implementation.  It is usually created
@@ -1397,6 +1397,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         public void channelActive(ChannelHandlerContext ctx) {
             ctx.fireChannelActive();
 
+            // 关注 OP_ACCEPT 事件
             readIfIsAutoRead();
         }
 

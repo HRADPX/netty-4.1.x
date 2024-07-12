@@ -15,20 +15,6 @@
  */
 package io.netty.channel.socket.nio;
 
-import io.netty.channel.ChannelException;
-import io.netty.channel.ChannelMetadata;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelOutboundBuffer;
-import io.netty.channel.socket.InternetProtocolFamily;
-import io.netty.util.internal.SocketUtils;
-import io.netty.channel.nio.AbstractNioMessageChannel;
-import io.netty.channel.socket.DefaultServerSocketChannelConfig;
-import io.netty.channel.socket.ServerSocketChannelConfig;
-import io.netty.util.internal.PlatformDependent;
-import io.netty.util.internal.SuppressJava6Requirement;
-import io.netty.util.internal.logging.InternalLogger;
-import io.netty.util.internal.logging.InternalLoggerFactory;
-
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
@@ -40,6 +26,20 @@ import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
 import java.util.List;
 import java.util.Map;
+
+import io.netty.channel.ChannelException;
+import io.netty.channel.ChannelMetadata;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.ChannelOutboundBuffer;
+import io.netty.channel.nio.AbstractNioMessageChannel;
+import io.netty.channel.socket.DefaultServerSocketChannelConfig;
+import io.netty.channel.socket.InternetProtocolFamily;
+import io.netty.channel.socket.ServerSocketChannelConfig;
+import io.netty.util.internal.PlatformDependent;
+import io.netty.util.internal.SocketUtils;
+import io.netty.util.internal.SuppressJava6Requirement;
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
  * A {@link io.netty.channel.socket.ServerSocketChannel} implementation which uses
@@ -86,6 +86,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
      * Create a new instance using the given {@link SelectorProvider} and protocol family (supported only since JDK 15).
      */
     public NioServerSocketChannel(SelectorProvider provider, InternetProtocolFamily family) {
+        // newChannel(provider, family) 创建 Nio 的 ServerSocketChannel
         this(newChannel(provider, family));
     }
 
@@ -93,6 +94,8 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
      * Create a new instance using the given {@link ServerSocketChannel}.
      */
     public NioServerSocketChannel(ServerSocketChannel channel) {
+        // 还没有注册 SelectionKey.OP_ACCEPT 事件，只是存到内部变量里，并设置为非阻塞
+        // 创建 pipeline，本质是双向链表
         super(null, channel, SelectionKey.OP_ACCEPT);
         config = new NioServerSocketChannelConfig(this, javaChannel().socket());
     }
@@ -151,10 +154,12 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
+        // 建立 SocketChannel
         SocketChannel ch = SocketUtils.accept(javaChannel());
 
         try {
             if (ch != null) {
+                // 构造 NioSocketChannel，并设置为非阻塞
                 buf.add(new NioSocketChannel(this, ch));
                 return 1;
             }

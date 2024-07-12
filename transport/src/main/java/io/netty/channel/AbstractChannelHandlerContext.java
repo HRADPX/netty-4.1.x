@@ -15,28 +15,6 @@
  */
 package io.netty.channel;
 
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.util.Attribute;
-import io.netty.util.AttributeKey;
-import io.netty.util.ReferenceCountUtil;
-import io.netty.util.ResourceLeakHint;
-import io.netty.util.concurrent.AbstractEventExecutor;
-import io.netty.util.concurrent.EventExecutor;
-import io.netty.util.concurrent.OrderedEventExecutor;
-import io.netty.util.internal.ObjectPool;
-import io.netty.util.internal.ObjectPool.Handle;
-import io.netty.util.internal.ObjectPool.ObjectCreator;
-import io.netty.util.internal.PromiseNotificationUtil;
-import io.netty.util.internal.ThrowableUtil;
-import io.netty.util.internal.ObjectUtil;
-import io.netty.util.internal.StringUtil;
-import io.netty.util.internal.SystemPropertyUtil;
-import io.netty.util.internal.logging.InternalLogger;
-import io.netty.util.internal.logging.InternalLoggerFactory;
-
-import java.net.SocketAddress;
-import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
-
 import static io.netty.channel.ChannelHandlerMask.MASK_BIND;
 import static io.netty.channel.ChannelHandlerMask.MASK_CHANNEL_ACTIVE;
 import static io.netty.channel.ChannelHandlerMask.MASK_CHANNEL_INACTIVE;
@@ -57,6 +35,28 @@ import static io.netty.channel.ChannelHandlerMask.MASK_READ;
 import static io.netty.channel.ChannelHandlerMask.MASK_USER_EVENT_TRIGGERED;
 import static io.netty.channel.ChannelHandlerMask.MASK_WRITE;
 import static io.netty.channel.ChannelHandlerMask.mask;
+
+import java.net.SocketAddress;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.util.Attribute;
+import io.netty.util.AttributeKey;
+import io.netty.util.ReferenceCountUtil;
+import io.netty.util.ResourceLeakHint;
+import io.netty.util.concurrent.AbstractEventExecutor;
+import io.netty.util.concurrent.EventExecutor;
+import io.netty.util.concurrent.OrderedEventExecutor;
+import io.netty.util.internal.ObjectPool;
+import io.netty.util.internal.ObjectPool.Handle;
+import io.netty.util.internal.ObjectPool.ObjectCreator;
+import io.netty.util.internal.ObjectUtil;
+import io.netty.util.internal.PromiseNotificationUtil;
+import io.netty.util.internal.StringUtil;
+import io.netty.util.internal.SystemPropertyUtil;
+import io.netty.util.internal.ThrowableUtil;
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
 
 abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, ResourceLeakHint {
 
@@ -413,12 +413,19 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return this;
     }
 
+    /**
+     * 如果两个 Handler 绑定的是同一个线程，那么就直接调用，否则，把要调用的代码封装为一个任务对象，
+     * 由下一个 Handler 线程来调用
+     */
     static void invokeChannelRead(final AbstractChannelHandlerContext next, Object msg) {
         final Object m = next.pipeline.touch(ObjectUtil.checkNotNull(msg, "msg"), next);
+        // 返回下一个 Handler 的 EventLoop
         EventExecutor executor = next.executor();
+        // 当前 Handler 中线程，是否和 EventLoop 是同一个线程
         if (executor.inEventLoop()) {
             next.invokeChannelRead(m);
         } else {
+            // 不是，将要执行的代码作为任务提交给下一个 EventLoop 处理。
             executor.execute(new Runnable() {
                 @Override
                 public void run() {

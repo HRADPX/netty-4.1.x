@@ -15,19 +15,19 @@
  */
 package io.netty.channel.nio;
 
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelConfig;
-import io.netty.channel.ChannelOutboundBuffer;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.RecvByteBufAllocator;
-import io.netty.channel.ServerChannel;
-
 import java.io.IOException;
 import java.net.PortUnreachableException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.util.ArrayList;
 import java.util.List;
+
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelConfig;
+import io.netty.channel.ChannelOutboundBuffer;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.RecvByteBufAllocator;
+import io.netty.channel.ServerChannel;
 
 /**
  * {@link AbstractNioChannel} base class for {@link Channel}s that operate on messages.
@@ -67,6 +67,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
         public void read() {
             assert eventLoop().inEventLoop();
             final ChannelConfig config = config();
+            // ServerSocketChannel 的 pipeline
             final ChannelPipeline pipeline = pipeline();
             final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
             allocHandle.reset(config);
@@ -76,6 +77,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             try {
                 try {
                     do {
+                        // 创建 SocketChannel
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             break;
@@ -92,6 +94,9 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
                 }
 
                 int size = readBuf.size();
+                // 放到 ServerSocketChannel 流水线处理
+                // 在启动时初始化会添加一个处理 Accept 事件 的 Handler（ServerBootstrapAcceptor）
+                // 完成读事件的注册逻辑
                 for (int i = 0; i < size; i ++) {
                     readPending = false;
                     pipeline.fireChannelRead(readBuf.get(i));

@@ -16,6 +16,15 @@
 
 package io.netty.bootstrap;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -33,15 +42,6 @@ import io.netty.util.internal.ObjectUtil;
 import io.netty.util.internal.SocketUtils;
 import io.netty.util.internal.StringUtil;
 import io.netty.util.internal.logging.InternalLogger;
-
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * {@link AbstractBootstrap} is a helper class that makes it easy to bootstrap a {@link Channel}. It support
@@ -268,13 +268,29 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return doBind(ObjectUtil.checkNotNull(localAddress, "localAddress"));
     }
 
+    /**
+     * 1） init
+     *  创建 NioServerSocketChannel
+     *  添加 NioServerSocketChannel 初始化 handler
+     * 2）register
+     *  启动 nio boss 线程
+     *  原生 ssc 注册到 Selector
+     *  执行 NioServerSocketChannel 初始化 Handler
+     * 3）regFuture 等待回调 doBind0
+     */
     private ChannelFuture doBind(final SocketAddress localAddress) {
+        // 返回的是 Future 对象，实现类 DefaultChannelPromise
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
             return regFuture;
         }
 
+        // 判断 Future 是否完成，如果已经完成，主线程执行 doBind0
+        // 反之，则通过监听器异步执行
+        // channelFuture 是在 io.netty.channel.AbstractChannel.AbstractUnsafe.register0 里完成
+        // doBind0 主要执行两个操作：端口绑定和关注 OP_ACCEPT 事件
+        // 其中关注 OP_ACCEPT 事件是在完成端口绑定后，触发流水线的 handler 的 active 事件完成
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
@@ -296,6 +312,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
                         // See https://github.com/netty/netty/issues/2586
                         promise.registered();
 
+                        // bind
                         doBind0(regFuture, channel, localAddress, promise);
                     }
                 }
@@ -307,7 +324,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
+            // ServerBootstrap#channel
+            // 创建 NioServerSocketChannel && ServerSocketChannel
+            // 设置非阻塞，创建 pipeline，设置监听事件，但是没有执行注册逻辑...
             channel = channelFactory.newChannel();
+            // 添加一个初始化的 Handler
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -320,6 +341,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
+        //  io.netty.channel.AbstractChannel.AbstractUnsafe#register
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {

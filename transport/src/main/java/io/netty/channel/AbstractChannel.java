@@ -15,17 +15,6 @@
  */
 package io.netty.channel;
 
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.socket.ChannelOutputShutdownEvent;
-import io.netty.channel.socket.ChannelOutputShutdownException;
-import io.netty.util.DefaultAttributeMap;
-import io.netty.util.ReferenceCountUtil;
-import io.netty.util.internal.ObjectUtil;
-import io.netty.util.internal.PlatformDependent;
-import io.netty.util.internal.UnstableApi;
-import io.netty.util.internal.logging.InternalLogger;
-import io.netty.util.internal.logging.InternalLoggerFactory;
-
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
@@ -36,6 +25,17 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.NotYetConnectedException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
+
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.channel.socket.ChannelOutputShutdownEvent;
+import io.netty.channel.socket.ChannelOutputShutdownException;
+import io.netty.util.DefaultAttributeMap;
+import io.netty.util.ReferenceCountUtil;
+import io.netty.util.internal.ObjectUtil;
+import io.netty.util.internal.PlatformDependent;
+import io.netty.util.internal.UnstableApi;
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
  * A skeletal {@link Channel} implementation.
@@ -476,9 +476,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             AbstractChannel.this.eventLoop = eventLoop;
 
+            // 判断当前线程是否是 NIO 线程
             if (eventLoop.inEventLoop()) {
                 register0(promise);
             } else {
+                // 切换线程，启动 NioEventLoop 里的执行线程
                 try {
                     eventLoop.execute(new Runnable() {
                         @Override
@@ -505,15 +507,23 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                // 执行注册
                 doRegister();
                 neverRegistered = false;
                 registered = true;
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
+                // 执行 NioServerSocketChannel 初始化的 Handler
+                // 向 nio ssc 中加入了 acceptor handler（在 accept 事件发生后建立连接）
+                // todo huangran 调用了 pipeline 的 initChannel 方法
                 pipeline.invokeHandlerAddedIfNeeded();
 
+                // 给 ChannelPromise 设置返回值，其实这个 promise 就是前面的 initAndRegister()
+                // 方法的返回值 regFuture 对象，这个操作会让 Future 对象操作的完成
+                // 然后执行 regFuture 的会调 doBind0() 方法
                 safeSetSuccess(promise);
+                // 调用 pipeline 里所有 Handler 的 channelRegistered 方法
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
@@ -559,6 +569,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             boolean wasActive = isActive();
             try {
+                // 执行 Nio 端口绑定
                 doBind(localAddress);
             } catch (Throwable t) {
                 safeSetFailure(promise, t);
@@ -566,6 +577,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
+            // 判断 Channel 是否 active，触发 Channel 的 Pipeline 所有 Handler 的 active 事件
+            // 此时流水线的 Handler 有：head -> acceptor -> tail
+            // 会在 head 里关注 OP_ACCEPT 事件 selectionKey.interestOps(SelectionKey.OP_ACCEPT)
+            // 最终调用方法：io.netty.channel.nio.AbstractNioChannel.doBeginRead
             if (!wasActive && isActive()) {
                 invokeLater(new Runnable() {
                     @Override

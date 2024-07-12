@@ -15,15 +15,6 @@
  */
 package io.netty.util.concurrent;
 
-import io.netty.util.internal.ObjectUtil;
-import io.netty.util.internal.PlatformDependent;
-import io.netty.util.internal.SystemPropertyUtil;
-import io.netty.util.internal.ThreadExecutorMap;
-import io.netty.util.internal.UnstableApi;
-import io.netty.util.internal.logging.InternalLogger;
-import io.netty.util.internal.logging.InternalLoggerFactory;
-import org.jetbrains.annotations.Async.Schedule;
-
 import java.lang.Thread.State;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,6 +34,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+
+import org.jetbrains.annotations.Async.Schedule;
+
+import io.netty.util.internal.ObjectUtil;
+import io.netty.util.internal.PlatformDependent;
+import io.netty.util.internal.SystemPropertyUtil;
+import io.netty.util.internal.ThreadExecutorMap;
+import io.netty.util.internal.UnstableApi;
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
  * Abstract base class for {@link OrderedEventExecutor}'s that execute all its submitted tasks in a single thread.
@@ -75,11 +76,15 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             AtomicReferenceFieldUpdater.newUpdater(
                     SingleThreadEventExecutor.class, ThreadProperties.class, "threadProperties");
 
+    // 任务队列
     private final Queue<Runnable> taskQueue;
 
+    // 执行任务的线程（该线程就是线程池里的线程），在首次提交任务执行时，线程池创建线程后
+    // 赋值给当前变量
     private volatile Thread thread;
     @SuppressWarnings("unused")
     private volatile ThreadProperties threadProperties;
+    // 单线程池
     private final Executor executor;
     private volatile boolean interrupted;
 
@@ -835,6 +840,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         boolean inEventLoop = inEventLoop();
         addTask(task);
         if (!inEventLoop) {
+            // 首次开启线程，在是服务端执行注册逻辑 register0
             startThread();
             if (isShutdown()) {
                 boolean reject = false;
@@ -854,7 +860,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         }
 
         if (!addTaskWakesUp && immediate) {
-            wakeup(inEventLoop);
+            wakeup(inEventLoop); // 提交任务后唤醒 selector，处理任务
         }
     }
 
@@ -952,6 +958,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {
                 boolean success = false;
                 try {
+                    // 开启线程
                     doStartThread();
                     success = true;
                 } finally {
@@ -986,6 +993,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         executor.execute(new Runnable() {
             @Override
             public void run() {
+                // 执行器的线程赋值给成员变量，所以 thread 线程和执行器里的线程是相同的
                 thread = Thread.currentThread();
                 if (interrupted) {
                     thread.interrupt();

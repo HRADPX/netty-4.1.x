@@ -187,13 +187,13 @@ import io.netty.channel.ChannelHandlerContext;
 public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
 
     private final ByteOrder byteOrder;
-    private final int maxFrameLength;
-    private final int lengthFieldOffset;
-    private final int lengthFieldLength;
-    private final int lengthFieldEndOffset;
-    private final int lengthAdjustment;
-    private final int initialBytesToStrip;
-    private final boolean failFast;
+    private final int maxFrameLength;           // 包最大长度
+    private final int lengthFieldOffset;        // 长度偏移量
+    private final int lengthFieldLength;        // 长度字段的长度
+    private final int lengthFieldEndOffset;     // 长度偏移量 + 长度字段的长度
+    private final int lengthAdjustment;         // 长度修正值
+    private final int initialBytesToStrip;      // 需要跳过的字节数（比如去掉 Http 的头部）
+    private final boolean failFast;             // fast-fail 机制，如长度字段大于设置最大长度，就会抛出异常
     private boolean discardingTooLongFrame;
     private long tooLongFrameLength;
     private long bytesToDiscard;
